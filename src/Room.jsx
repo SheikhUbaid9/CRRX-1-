@@ -2,7 +2,8 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import { FirstPerson, HandsRig } from "./FirstPerson";
-import { useSurface, ScenicWindow, Curtains } from "./RoomMaterials";
+import { useSurface, Curtains } from "./RoomMaterials";
+import Outdoors from "./Outdoors";
 import PhysicalBook from "./PhysicalBook";
 function Box({ at, size, color, ...rest }) {
   const wood = useSurface("wood"),
@@ -62,7 +63,7 @@ function Plant({ at, scale = 1 }) {
     </group>
   );
 }
-function Scene({ night, onShelf, walking, children, books, onPick }) {
+function Scene({ night, onShelf, walking, children, books, onPick, onSit }) {
   return (
     <>
       <color attach="background" args={[night ? "#292d36" : "#e8e4da"]} />
@@ -93,11 +94,11 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
             color="#937252"
           />
         ))}
-        <Box
-          at={[0, 2, -3]}
-          size={[8, 4, 0.16]}
-          color={night ? "#747369" : "#d5d0bd"}
-        />
+        {/* Four wall sections leave a real 3.28 x 2.12 window opening. */}
+        <Box at={[-3.605, 2, -3]} size={[0.79, 4, 0.16]} color="#d5d0bd" />
+        <Box at={[2.105, 2, -3]} size={[3.79, 4, 0.16]} color="#d5d0bd" />
+        <Box at={[-1.5, 0.645, -3]} size={[3.28, 1.29, 0.16]} color="#d5d0bd" />
+        <Box at={[-1.5, 3.705, -3]} size={[3.28, 0.59, 0.16]} color="#d5d0bd" />
         <Box at={[-4, 2, 0]} size={[0.16, 4, 6]} color="#ded8c7" />
         {walking && (
           <>
@@ -112,17 +113,23 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
             <Box at={[0, 4, 0]} size={[8, 0.12, 6]} color="#e5dfcf" />
           </>
         )}
-        <Box
-          at={[-1.5, 2.35, -2.89]}
-          size={[3.5, 2.35, 0.08]}
-          color="#8c7860"
-        />
-        <Box
-          at={[-1.5, 2.35, -2.82]}
-          size={[3.28, 2.12, 0.06]}
-          color={night ? "#34485c" : "#b8cdd0"}
-        />
-        <ScenicWindow night={night} />
+        <Outdoors night={night} />
+        {[-3.2, 0.2].map((x) => (
+          <Box
+            key={x}
+            at={[x, 2.35, -2.9]}
+            size={[0.12, 2.3, 0.16]}
+            color="#87674b"
+          />
+        ))}
+        {[1.25, 3.45].map((y) => (
+          <Box
+            key={y}
+            at={[-1.5, y, -2.9]}
+            size={[3.5, 0.12, 0.16]}
+            color="#87674b"
+          />
+        ))}
         <Box
           at={[-1.5, 2.35, -2.63]}
           size={[0.065, 2.2, 0.1]}
@@ -237,7 +244,14 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
             />
           </group>
         </group>
-        <group position={[-1.4, 0, 0.35]} rotation={[0, 0.2, 0]}>
+        <group
+          position={[-1.4, 0, 0.35]}
+          rotation={[0, 0.2, 0]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSit();
+          }}
+        >
           <Box at={[0, 0.65, 0]} size={[0.85, 0.18, 0.85]} color="#7d886b" />
           <Box at={[0, 1.13, 0.38]} size={[0.85, 0.9, 0.14]} color="#7d886b" />
           {[-0.33, 0.33].flatMap((x) =>
@@ -308,10 +322,13 @@ export default function Room({
     [turning, setTurning] = useState(false),
     [reading, setReading] = useState(true),
     [bookZoom, setBookZoom] = useState(1),
-    [bookPan, setBookPan] = useState({ x: 0, y: 0 });
+    [bookPan, setBookPan] = useState({ x: 0, y: 0 }),
+    [seated, setSeated] = useState(false),
+    [ink, setInk] = useState(1.2);
   const drag = useRef(null);
   const region = useRef();
   const unlock = () => {
+    setLocked(false);
     if (document.pointerLockElement) document.exitPointerLock();
   };
   function browse() {
@@ -336,6 +353,7 @@ export default function Room({
   function leave() {
     unlock();
     setWalking(false);
+    setSeated(false);
     setShelfOpen(false);
     putDown();
     setNear(false);
@@ -394,6 +412,11 @@ export default function Room({
             books={books}
             walking={walking}
             onPick={pick}
+            onSit={() => {
+              unlock();
+              setWalking(true);
+              setSeated(true);
+            }}
             onShelf={walking ? browse : onShelf}
           >
             {walking && (
@@ -406,13 +429,15 @@ export default function Room({
                   onRead={read}
                   blocked={shelfOpen || (reading && !!held)}
                   onReading={toggleReading}
+                  seated={seated}
                 />
-                <HandsRig holding={!!held} turning={turning}>
+                <HandsRig>
                   {held && (
                     <PhysicalBook
                       key={held.id}
                       book={held}
                       reading={reading}
+                      ink={ink}
                       zoom={bookZoom}
                       pan={bookPan}
                       command={command}
@@ -464,7 +489,18 @@ export default function Room({
             </div>
           )}
           <div className="walk-top">
-            <span className="walk-label">STILLROOM / FIRST PERSON</span>
+            <button
+              className="walk-button"
+              onClick={() => {
+                unlock();
+                setSeated((s) => !s);
+              }}
+            >
+              {seated ? "Stand up" : "Sit at desk"}
+            </button>
+            <span className="walk-label">
+              {seated ? "STILLROOM / SEATED" : "STILLROOM / FIRST PERSON"}
+            </span>
             <button className="walk-button" onClick={leave}>
               Exit room
             </button>
@@ -495,9 +531,11 @@ export default function Room({
               <div className="interaction-hint">
                 {held
                   ? "← / → Pages · R Enlarge book · F Highlight · E Put away"
-                  : near
-                    ? "E · Pick a book from the shelf"
-                    : "WASD Walk · Mouse Look · Find a book at the shelf"}
+                  : seated
+                    ? "Seated · Mouse look · Stand up to walk"
+                    : near
+                      ? "E · Pick a book from the shelf"
+                      : "WASD Walk · Mouse Look · Find a book at the shelf"}
                 <small>ESC releases your mouse</small>
               </div>
             </>
@@ -557,6 +595,18 @@ export default function Room({
                   </button>
                 </div>
               )}
+              <label className="ink-control">
+                Ink
+                <input
+                  aria-label="Ink contrast"
+                  type="range"
+                  min="1"
+                  max="2"
+                  step=".1"
+                  value={ink}
+                  onChange={(e) => setInk(Number(e.target.value))}
+                />
+              </label>
               <button onClick={toggleReading}>
                 {reading ? "Hold & walk" : "Read in room"}
               </button>

@@ -1333,3 +1333,27 @@ h1 em {
     flex-basis: auto;
   }
 }
+.ink-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #eee8d8;
+}
+.ink-control input {
+  width: 55px;
+  accent-color: #c7bb97;
+}
+.walk-top {
+  gap: 12px;
+}
+.walk-label {
+  margin-right: auto;
+}
+.held-controls {
+  flex-wrap: wrap;
+}
+.held-controls > div:first-child {
+  flex: 1;
+  min-width: 100px;
+}

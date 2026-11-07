@@ -10,6 +10,7 @@ export function FirstPerson({
   onRead,
   blocked,
   onReading,
+  seated,
 }) {
   const { camera, gl } = useThree();
   const keys = useRef(new Set()),
@@ -24,6 +25,7 @@ export function FirstPerson({
     onRead,
     blocked,
     onReading,
+    seated,
   };
   useEffect(() => {
     camera.position.set(0.6, 1.55, 2.35);
@@ -118,8 +120,22 @@ export function FirstPerson({
       camera.updateProjectionMatrix();
     };
   }, [camera, gl]);
+  useEffect(() => {
+    keys.current.clear();
+    camera.position.set(
+      seated ? -1.4 : 0.6,
+      seated ? 1.35 : 1.55,
+      seated ? 0.15 : 2.35,
+    );
+    camera.rotation.set(seated ? -0.08 : -0.07, 0, 0, "YXZ");
+    angles.current.copy(camera.rotation);
+  }, [seated, camera]);
   useFrame((_, dt) => {
-    if (document.pointerLockElement !== gl.domElement || latest.current.blocked)
+    if (
+      document.pointerLockElement !== gl.domElement ||
+      latest.current.blocked ||
+      latest.current.seated
+    )
       return;
     const k = keys.current;
     let x = Number(k.has("KeyD")) - Number(k.has("KeyA")),
@@ -140,68 +156,7 @@ export function FirstPerson({
   });
   return null;
 }
-function Hand({ side, holding, turning }) {
-  const hand = useRef();
-  useFrame(({ clock }, dt) => {
-    if (!hand.current) return;
-    const target = side === 1 && turning ? 0.11 : 0;
-    hand.current.position.y = MathUtils.damp(
-      hand.current.position.y,
-      target,
-      8,
-      dt,
-    );
-    hand.current.rotation.z =
-      side * (0.13 + Math.sin(clock.elapsedTime * 1.5) * 0.015);
-  });
-  return (
-    <group
-      position={[
-        side * (holding ? 0.305 : 0.28),
-        holding ? -0.42 : -0.53,
-        holding ? -0.64 : -0.62,
-      ]}
-      rotation={[0.2, side * -0.3, side * 0.1]}
-    >
-      <group ref={hand}>
-        <mesh position={[0, -0.18, 0.05]} rotation={[-0.25, 0, 0]}>
-          <capsuleGeometry args={[0.046, 0.26, 6, 12]} />
-          <meshStandardMaterial color="#77816a" roughness={0.9} />
-        </mesh>
-        <mesh scale={[0.058, 0.09, 0.035]}>
-          <sphereGeometry args={[1, 16, 16]} />
-          <meshStandardMaterial color="#cb9977" roughness={0.85} />
-        </mesh>
-        {Array.from({ length: 4 }, (_, i) => (
-          <group
-            key={i}
-            position={[(i - 1.5) * 0.024, 0.068, -0.004]}
-            rotation={[-0.6, 0, (i - 1.5) * -0.07]}
-          >
-            <mesh position={[0, 0.03, 0]}>
-              <capsuleGeometry
-                args={[0.011, 0.046 - (i === 3 ? 0.014 : 0), 4, 8]}
-              />
-              <meshStandardMaterial color="#d7a583" roughness={0.8} />
-            </mesh>
-            <mesh position={[0, 0.055, -0.016]} rotation={[-0.9, 0, 0]}>
-              <capsuleGeometry args={[0.01, 0.025, 4, 8]} />
-              <meshStandardMaterial color="#d7a583" roughness={0.8} />
-            </mesh>
-          </group>
-        ))}
-        <mesh
-          position={[-side * 0.055, 0.01, 0.018]}
-          rotation={[0.4, 0, side * 0.7]}
-        >
-          <capsuleGeometry args={[0.016, 0.045, 5, 10]} />
-          <meshStandardMaterial color="#d7a583" roughness={0.8} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-export function HandsRig({ holding, turning, children }) {
+export function HandsRig({ children }) {
   const rig = useRef();
   const foreground = useMemo(() => new Scene(), []);
   useFrame(({ camera }) => {
@@ -227,8 +182,7 @@ export function HandsRig({ holding, turning, children }) {
         distance={1.8}
         color="#fff0d6"
       />
-      <Hand side={-1} holding={holding} />
-      <Hand side={1} holding={holding} turning={turning} />
+
       {children}
     </group>,
     foreground,

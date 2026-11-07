@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
   BackSide,
@@ -11,19 +17,42 @@ import * as pdfjs from "pdfjs-dist";
 import { spreadFor } from "./roomPhysics";
 const WIDTH = 0.29,
   HEIGHT = 0.405;
-function Page({ texture, x, onClick }) {
+function PaperMaterial({ texture, ink = 1.2, ...props }) {
+  const material = useRef();
+  useLayoutEffect(() => {
+    const shader = material.current?.userData.shader;
+    if (shader) shader.uniforms.uInk.value = ink;
+  }, [ink]);
+  return (
+    <meshBasicMaterial
+      ref={material}
+      key={texture?.uuid || "paper"}
+      map={texture}
+      toneMapped={false}
+      color={texture ? "#ffffff" : "#fffdf6"}
+      onBeforeCompile={(shader) => {
+        shader.uniforms.uInk = { value: ink };
+        shader.fragmentShader = "uniform float uInk;\n" + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <map_fragment>",
+          "#include <map_fragment>\n diffuseColor.rgb=pow(max(diffuseColor.rgb,vec3(0.0)),vec3(uInk));",
+        );
+        material.current.userData.shader = shader;
+      }}
+      customProgramCacheKey={() => "stillroom-paper-contrast-v1"}
+      {...props}
+    />
+  );
+}
+function Page({ texture, x, onClick, ink }) {
   return (
     <mesh position={[x, 0, 0.012]} onClick={onClick}>
       <planeGeometry args={[WIDTH, HEIGHT]} />
-      <meshBasicMaterial
-        key={texture?.uuid || "blank"}
-        map={texture}
-        color={texture ? "#ffffff" : "#f3eddd"}
-      />
+      <PaperMaterial texture={texture} ink={ink} />
     </mesh>
   );
 }
-function TurningLeaf({ front, back, direction, onComplete }) {
+function TurningLeaf({ front, back, direction, onComplete, ink }) {
   const progress = useRef(0),
     done = useRef(false);
   const geometries = useMemo(() => {
@@ -69,15 +98,10 @@ function TurningLeaf({ front, back, direction, onComplete }) {
   return (
     <group>
       <mesh geometry={geometries[0]}>
-        <meshBasicMaterial map={front} side={FrontSide} />
+        <PaperMaterial texture={front} ink={ink} side={FrontSide} />
       </mesh>
       <mesh geometry={geometries[1]}>
-        <meshBasicMaterial
-          map={back}
-          side={BackSide}
-          polygonOffset
-          polygonOffsetFactor={-1}
-        />
+        <PaperMaterial texture={back} ink={ink} side={BackSide} />
       </mesh>
     </group>
   );
@@ -89,6 +113,7 @@ export default function PhysicalBook({
   onStatus,
   onTurning,
   reading,
+  ink = 1.2,
   zoom = 1,
   pan = { x: 0, y: 0 },
 }) {
@@ -238,8 +263,8 @@ export default function PhysicalBook({
           <meshStandardMaterial color="#dfdacb" />
         </mesh>
       ))}
-      <Page texture={left} x={-WIDTH / 2} onClick={() => start(-1)} />
-      <Page texture={right} x={WIDTH / 2} onClick={() => start(1)} />
+      <Page texture={left} ink={ink} x={-WIDTH / 2} onClick={() => start(-1)} />
+      <Page texture={right} ink={ink} x={WIDTH / 2} onClick={() => start(1)} />
       <mesh position={[0, 0, 0.013]}>
         <boxGeometry args={[0.004, HEIGHT, 0.004]} />
         <meshBasicMaterial color="#c5bba3" />
@@ -248,6 +273,7 @@ export default function PhysicalBook({
         <TurningLeaf
           key={`${spread}-${turn.direction}`}
           direction={turn.direction}
+          ink={ink}
           front={maps[turn.direction === 1 ? spread + 1 : spread - 1]}
           back={maps[turn.direction === 1 ? spread + 2 : spread]}
           onComplete={finish}

@@ -8,6 +8,12 @@ test("walk, pick up a PDF, turn its pages and retain reader annotations", async 
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await page.getByRole("button", { name: "Enter the room" }).click();
+  await page.getByRole("button", { name: "Sit at desk", exact: true }).click();
+  await expect(page.locator(".walk-label")).toHaveText("STILLROOM / SEATED");
+  await page.getByRole("button", { name: "Stand up", exact: true }).click();
+  await expect(page.locator(".walk-label")).toHaveText(
+    "STILLROOM / FIRST PERSON",
+  );
   await page
     .locator(".walking-room canvas")
     .click({ position: { x: 50, y: 150 } });
@@ -46,6 +52,13 @@ test("walk, pick up a PDF, turn its pages and retain reader annotations", async 
   });
   await expect(next).toBeEnabled({ timeout: 20000 });
   await expect(previous).toBeDisabled();
+  await page.getByRole("slider", { name: "Ink contrast" }).fill("1.8");
+  await expect(page.getByRole("slider", { name: "Ink contrast" })).toHaveValue(
+    "1.8",
+  );
+  await page.getByRole("button", { name: "Sit at desk", exact: true }).click();
+  await expect(page.locator(".held-controls")).toContainText("Chapters");
+  await page.getByRole("button", { name: "Stand up", exact: true }).click();
   await expect(page.locator(".reading-in-room")).toBeVisible();
   await page.getByRole("button", { name: "Zoom book in", exact: true }).click();
   await expect(page.locator(".book-pan-surface")).toBeVisible();

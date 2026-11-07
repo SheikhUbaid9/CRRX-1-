@@ -67,3 +67,11 @@ Books now open in an enlarged, stationary **Read in room** position. Use **Hold 
 The room includes locally generated wood/plaster/linen textures, folded curtains and a day/night forest-and-mountain window illustration. These are original procedural assets, not photorealistic Sketchfab models. The Sketchfab search link was blocked by the environment's outbound network policy; no third-party room model was downloaded or licensed.
 
 In the enlarged room view, **+ / −** zoom the physical book up to 250%. When zoomed, drag over the paper to pan. Zooming out resets the pan. PDF page textures render at 1600 × 2200 for clearer text.
+
+## Latest interaction changes
+
+PDF paper bypasses the room tone mapping and exposes an **Ink** contrast slider (1.0 preserves the texture contrast; higher values darken it). Both sides of turning pages use the same paper shader. The window picture has been replaced by a wall opening onto actual world-space terrain, trees, hills, clouds and a sun/moon; lateral camera motion produces parallax. The outdoor meshes are still procedural, not photorealistic licensed art.
+
+Click **Sit at desk** or the chair to enter a seated view. Use **Stand up** to return to the walking area. Walking is disabled while seated. The placeholder procedural hands have been removed; a professionally rigged hand asset remains future work.
+
+Selected replacement room: [Chrono Room](https://sketchfab.com/3d-models/chrono-room-046a0363c05446df8ab2353ab18a69ac). Its download and license have not yet been verified: the running cloud policy still denies Sketchfab with HTTP 403. A Sketchfab domain-access draft has been saved for review. The model is not bundled or rendered yet. Integration requires either applied network access and a permitted download, or the model file with its license/attribution supplied by the user.
