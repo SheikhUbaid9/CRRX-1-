@@ -2,12 +2,29 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import { FirstPerson, HandsRig } from "./FirstPerson";
+import { useSurface, ScenicWindow, Curtains } from "./RoomMaterials";
 import PhysicalBook from "./PhysicalBook";
 function Box({ at, size, color, ...rest }) {
+  const wood = useSurface("wood"),
+    plaster = useSurface("plaster");
+  const timber = [
+    "#a48260",
+    "#a77c52",
+    "#73583e",
+    "#87674b",
+    "#987657",
+    "#a7815c",
+    "#795c43",
+    "#907456",
+  ].includes(color);
   return (
     <mesh position={at} castShadow receiveShadow {...rest}>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.8} />
+      <meshStandardMaterial
+        map={timber ? wood : plaster}
+        color={color}
+        roughness={timber ? 0.65 : 0.95}
+      />
     </mesh>
   );
 }
@@ -57,7 +74,16 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
         castShadow
         shadow-mapSize={[1024, 1024]}
       />
+      <pointLight
+        position={[-1.5, 2.8, -2.3]}
+        color={night ? "#839fbe" : "#ffe4b2"}
+        intensity={night ? 1 : 5}
+        distance={8}
+        decay={2}
+      />
       <group position={[0, -0.15, 0]}>
+        <Box at={[0, 0.1, -2.86]} size={[8, 0.2, 0.1]} color="#87674b" />
+        <Box at={[-3.86, 0.1, 0]} size={[0.1, 0.2, 6]} color="#87674b" />
         <Box at={[0, -0.13, 0]} size={[8, 0.25, 6]} color="#a48260" />
         {Array.from({ length: 16 }, (_, i) => (
           <Box
@@ -96,16 +122,7 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
           size={[3.28, 2.12, 0.06]}
           color={night ? "#34485c" : "#b8cdd0"}
         />
-        <mesh position={[-0.8, 2.85, -2.75]}>
-          <sphereGeometry args={[0.23, 24, 24]} />
-          <meshBasicMaterial color={night ? "#f5e8c6" : "#fff4cf"} />
-        </mesh>
-        {[0, 1, 2].map((i) => (
-          <mesh key={i} position={[-2.6 + i * 1.1, 1.5, -2.72]}>
-            <coneGeometry args={[0.75, 1.15, 4]} />
-            <meshStandardMaterial color={night ? "#3e5553" : "#7f9a87"} />
-          </mesh>
-        ))}
+        <ScenicWindow night={night} />
         <Box
           at={[-1.5, 2.35, -2.63]}
           size={[0.065, 2.2, 0.1]}
@@ -117,12 +134,7 @@ function Scene({ night, onShelf, walking, children, books, onPick }) {
           color="#eee4cf"
         />
         <Box at={[-1.5, 1.2, -2.58]} size={[3.7, 0.12, 0.4]} color="#b7a17b" />
-        <Box
-          at={[-3.35, 2.3, -2.58]}
-          size={[0.35, 2.6, 0.16]}
-          color="#e9dec5"
-        />
-        <Box at={[0.35, 2.3, -2.58]} size={[0.35, 2.6, 0.16]} color="#e9dec5" />
+        <Curtains />
         <group
           position={[2.2, 0, -2.42]}
           onClick={(e) => {
@@ -293,7 +305,11 @@ export default function Room({
     [held, setHeld] = useState(null),
     [command, setCommand] = useState({ id: 0, direction: 1 }),
     [status, setStatus] = useState({ loading: true }),
-    [turning, setTurning] = useState(false);
+    [turning, setTurning] = useState(false),
+    [reading, setReading] = useState(true),
+    [bookZoom, setBookZoom] = useState(1),
+    [bookPan, setBookPan] = useState({ x: 0, y: 0 });
+  const drag = useRef(null);
   const region = useRef();
   const unlock = () => {
     if (document.pointerLockElement) document.exitPointerLock();
@@ -305,6 +321,9 @@ export default function Room({
   function pick(book) {
     unlock();
     setHeld(book);
+    setReading(true);
+    setBookZoom(1);
+    setBookPan({ x: 0, y: 0 });
     setStatus({ loading: true });
     setTurning(false);
     setWalking(true);
@@ -332,6 +351,11 @@ export default function Room({
     onRead(held);
     leave();
   }
+  function toggleReading() {
+    if (!held) return;
+    unlock();
+    setReading((r) => !r);
+  }
   function interact(close) {
     if (held) {
       putDown();
@@ -352,7 +376,11 @@ export default function Room({
   return (
     <div
       ref={region}
-      className={walking ? "immersive-room walking-room" : "immersive-room"}
+      className={
+        walking
+          ? `immersive-room walking-room ${held && reading ? "reading-in-room" : ""}`
+          : "immersive-room"
+      }
     >
       <Canvas
         frameloop={walking && (locked || turning) ? "always" : "demand"}
@@ -376,13 +404,17 @@ export default function Room({
                   onInteract={interact}
                   onTurn={turn}
                   onRead={read}
-                  blocked={shelfOpen}
+                  blocked={shelfOpen || (reading && !!held)}
+                  onReading={toggleReading}
                 />
                 <HandsRig holding={!!held} turning={turning}>
                   {held && (
                     <PhysicalBook
                       key={held.id}
                       book={held}
+                      reading={reading}
+                      zoom={bookZoom}
+                      pan={bookPan}
                       command={command}
                       onUpdate={(b) => {
                         setHeld(b);
@@ -405,13 +437,39 @@ export default function Room({
       )}
       {walking && (
         <>
+          {held && reading && bookZoom > 1 && (
+            <div
+              className="book-pan-surface"
+              aria-label="Drag to move the enlarged book"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                drag.current = { x: e.clientX, y: e.clientY };
+              }}
+              onPointerMove={(e) => {
+                if (!drag.current) return;
+                const dx =
+                    (e.clientX - drag.current.x) / e.currentTarget.clientHeight,
+                  dy =
+                    (e.clientY - drag.current.y) / e.currentTarget.clientHeight;
+                drag.current = { x: e.clientX, y: e.clientY };
+                setBookPan((p) => ({
+                  x: Math.max(-1.5, Math.min(1.5, p.x + dx)),
+                  y: Math.max(-1.5, Math.min(1.5, p.y - dy)),
+                }));
+              }}
+              onPointerUp={() => (drag.current = null)}
+              onPointerCancel={() => (drag.current = null)}
+            >
+              <span>Drag to move around the page</span>
+            </div>
+          )}
           <div className="walk-top">
             <span className="walk-label">STILLROOM / FIRST PERSON</span>
             <button className="walk-button" onClick={leave}>
               Exit room
             </button>
           </div>
-          {!locked && !shelfOpen && (
+          {!locked && !shelfOpen && !(held && reading) && (
             <div className="walk-pause">
               <h3>
                 {held
@@ -436,7 +494,7 @@ export default function Room({
               <div className="crosshair" />
               <div className="interaction-hint">
                 {held
-                  ? "← / → Turn pages · F Focus & highlight · E Put book away"
+                  ? "← / → Pages · R Enlarge book · F Highlight · E Put away"
                   : near
                     ? "E · Pick a book from the shelf"
                     : "WASD Walk · Mouse Look · Find a book at the shelf"}
@@ -476,6 +534,31 @@ export default function Room({
                 onClick={() => turn(1)}
               >
                 →
+              </button>
+              {reading && (
+                <div className="book-zoom">
+                  <button
+                    aria-label="Zoom book out"
+                    disabled={bookZoom <= 1}
+                    onClick={() => {
+                      setBookZoom((z) => Math.max(1, z - 0.25));
+                      setBookPan({ x: 0, y: 0 });
+                    }}
+                  >
+                    −
+                  </button>
+                  <span>{Math.round(bookZoom * 100)}%</span>
+                  <button
+                    aria-label="Zoom book in"
+                    disabled={bookZoom >= 2.5}
+                    onClick={() => setBookZoom((z) => Math.min(2.5, z + 0.25))}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              <button onClick={toggleReading}>
+                {reading ? "Hold & walk" : "Read in room"}
               </button>
               <button onClick={read}>Focus & highlight</button>
               <button onClick={putDown}>Put away</button>

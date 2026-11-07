@@ -59,3 +59,11 @@ npm run test:browser
 ```
 
 On a cloud machine with system Chromium already installed, use `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:browser`. The runner starts its own development server on port 4173.
+
+## Reading comfort and room detail
+
+Books now open in an enlarged, stationary **Read in room** position. Use **Hold & walk** to return to carrying the book, then click the scene to capture your mouse. Press **R** while carrying to enlarge it again. The book and hands render in a separate first-person foreground pass so tables and shelves cannot cut through the paper. Furniture still blocks the player's movement.
+
+The room includes locally generated wood/plaster/linen textures, folded curtains and a day/night forest-and-mountain window illustration. These are original procedural assets, not photorealistic Sketchfab models. The Sketchfab search link was blocked by the environment's outbound network policy; no third-party room model was downloaded or licensed.
+
+In the enlarged room view, **+ / −** zoom the physical book up to 250%. When zoomed, drag over the paper to pan. Zooming out resets the pan. PDF page textures render at 1600 × 2200 for clearer text.

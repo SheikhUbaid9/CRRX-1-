@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
-import { Euler, MathUtils } from "three";
+import React, { useEffect, useMemo, useRef } from "react";
+import { createPortal, useFrame, useThree } from "@react-three/fiber";
+import { Euler, MathUtils, Scene } from "three";
 import { movePlayer, nearShelf } from "./roomPhysics";
 export function FirstPerson({
   onLocked,
@@ -9,13 +9,22 @@ export function FirstPerson({
   onTurn,
   onRead,
   blocked,
+  onReading,
 }) {
   const { camera, gl } = useThree();
   const keys = useRef(new Set()),
     locked = useRef(false),
     angles = useRef(new Euler(0, 0, 0, "YXZ"));
   const latest = useRef();
-  latest.current = { onLocked, onNear, onInteract, onTurn, onRead, blocked };
+  latest.current = {
+    onLocked,
+    onNear,
+    onInteract,
+    onTurn,
+    onRead,
+    blocked,
+    onReading,
+  };
   useEffect(() => {
     camera.position.set(0.6, 1.55, 2.35);
     camera.rotation.set(-0.07, 0, 0, "YXZ");
@@ -73,6 +82,7 @@ export function FirstPerson({
       if (e.code === "ArrowRight") latest.current.onTurn(1);
       if (e.code === "ArrowLeft") latest.current.onTurn(-1);
       if (e.code === "KeyF") latest.current.onRead();
+      if (e.code === "KeyR") latest.current.onReading();
     };
     const up = (e) => keys.current.delete(e.code);
     const blur = () => {
@@ -193,12 +203,24 @@ function Hand({ side, holding, turning }) {
 }
 export function HandsRig({ holding, turning, children }) {
   const rig = useRef();
+  const foreground = useMemo(() => new Scene(), []);
   useFrame(({ camera }) => {
     rig.current.position.copy(camera.position);
     rig.current.quaternion.copy(camera.quaternion);
   });
-  return (
+  // Standard first-person viewmodel pass: world depth must not cut through held objects.
+  useFrame(({ gl, scene, camera }) => {
+    const autoClear = gl.autoClear;
+    gl.autoClear = true;
+    gl.render(scene, camera);
+    gl.autoClear = false;
+    gl.clearDepth();
+    gl.render(foreground, camera);
+    gl.autoClear = autoClear;
+  }, 1);
+  return createPortal(
     <group ref={rig}>
+      <ambientLight intensity={1.8} />
       <pointLight
         position={[0, 0.1, -0.4]}
         intensity={0.5}
@@ -208,6 +230,7 @@ export function HandsRig({ holding, turning, children }) {
       <Hand side={-1} holding={holding} />
       <Hand side={1} holding={holding} turning={turning} />
       {children}
-    </group>
+    </group>,
+    foreground,
   );
 }

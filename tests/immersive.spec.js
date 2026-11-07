@@ -28,13 +28,11 @@ test("walk, pick up a PDF, turn its pages and retain reader annotations", async 
     .toBe(false);
   await page.getByRole("button", { name: "Close bookshelf" }).click();
   await page.getByRole("button", { name: "Exit room" }).click();
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "Chapters.pdf",
-      mimeType: "application/pdf",
-      buffer: pdfFixture(),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "Chapters.pdf",
+    mimeType: "application/pdf",
+    buffer: pdfFixture(),
+  });
   await expect(
     page.getByRole("heading", { name: "Chapters", exact: true }),
   ).toBeVisible();
@@ -48,6 +46,22 @@ test("walk, pick up a PDF, turn its pages and retain reader annotations", async 
   });
   await expect(next).toBeEnabled({ timeout: 20000 });
   await expect(previous).toBeDisabled();
+  await expect(page.locator(".reading-in-room")).toBeVisible();
+  await page.getByRole("button", { name: "Zoom book in", exact: true }).click();
+  await expect(page.locator(".book-pan-surface")).toBeVisible();
+  const area = await page.locator(".book-pan-surface").boundingBox();
+  await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    area.x + area.width / 2 + 80,
+    area.y + area.height / 2 - 40,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  await page
+    .getByRole("button", { name: "Zoom book out", exact: true })
+    .click();
+  await expect(page.locator(".book-pan-surface")).toHaveCount(0);
   await next.click();
   await expect(page.locator(".held-controls")).toContainText("Pages 3–4 of 5", {
     timeout: 20000,
@@ -64,6 +78,8 @@ test("walk, pick up a PDF, turn its pages and retain reader annotations", async 
     timeout: 20000,
   });
   await expect(previous).toBeEnabled({ timeout: 20000 });
+  await expect(page.locator(".reading-in-room")).toBeVisible();
+  await page.getByRole("button", { name: "Hold & walk" }).click();
   await page
     .locator(".walking-room canvas")
     .click({ position: { x: 50, y: 150 } });

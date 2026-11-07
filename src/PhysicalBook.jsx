@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import {
   BackSide,
   CanvasTexture,
@@ -88,7 +88,16 @@ export default function PhysicalBook({
   onUpdate,
   onStatus,
   onTurning,
+  reading,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
 }) {
+  const { camera, size } = useThree();
+  const visibleHeight = 2 * 0.65 * Math.tan((camera.fov * Math.PI) / 360);
+  const readingScale = Math.min(
+    (visibleHeight * 0.76) / HEIGHT,
+    (visibleHeight * (size.width / size.height) * 0.9) / (WIDTH * 2),
+  );
   const [doc, setDoc] = useState(null),
     [spread, setSpread] = useState(() => spreadFor(book.page || 1)),
     [assets, setAssets] = useState(null),
@@ -125,16 +134,16 @@ export default function PhysicalBook({
       const pages = {};
       for (let n = spread - 2; n <= spread + 3; n++) {
         const canvas = document.createElement("canvas");
-        canvas.width = 800;
-        canvas.height = 1100;
+        canvas.width = 1600;
+        canvas.height = 2200;
         const ctx = canvas.getContext("2d");
         ctx.fillStyle = "#fffdf6";
-        ctx.fillRect(0, 0, 800, 1100);
+        ctx.fillRect(0, 0, 1600, 2200);
         if (n >= 1 && n <= doc.numPages) {
           const p = await doc.getPage(n);
           if (cancelled) return;
           const base = p.getViewport({ scale: 1 });
-          const scale = Math.min(800 / base.width, 1100 / base.height);
+          const scale = Math.min(1600 / base.width, 2200 / base.height);
           const viewport = p.getViewport({ scale });
           const job = p.render({
             canvasContext: ctx,
@@ -144,8 +153,8 @@ export default function PhysicalBook({
               0,
               0,
               1,
-              (800 - viewport.width) / 2,
-              (1100 - viewport.height) / 2,
+              (1600 - viewport.width) / 2,
+              (2200 - viewport.height) / 2,
             ],
             background: "#fffdf6",
           });
@@ -155,7 +164,7 @@ export default function PhysicalBook({
           ctx.fillStyle = "#b3ac98";
           ctx.font = "14px serif";
           ctx.textAlign = "center";
-          ctx.fillText("STILLROOM", 400, 550);
+          ctx.fillText("STILLROOM", 800, 1100);
         }
         if (cancelled) return;
         const texture = new CanvasTexture(canvas);
@@ -210,7 +219,15 @@ export default function PhysicalBook({
   const left = turn?.direction === -1 ? maps?.[spread - 2] : maps?.[spread];
   const right = turn?.direction === 1 ? maps?.[spread + 3] : maps?.[spread + 1];
   return (
-    <group position={[0, -0.225, -0.77]} rotation={[-0.12, 0, 0]}>
+    <group
+      position={
+        reading
+          ? [pan.x * visibleHeight, 0.025 + pan.y * visibleHeight, -0.65]
+          : [0, -0.18, -0.67]
+      }
+      scale={reading ? readingScale * zoom : 1.1}
+      rotation={reading ? [0, 0, 0] : [-0.06, 0, 0]}
+    >
       <mesh position={[0, 0, -0.016]}>
         <boxGeometry args={[WIDTH * 2 + 0.035, HEIGHT + 0.035, 0.025]} />
         <meshStandardMaterial color={book.color || "#60725a"} roughness={0.9} />
